@@ -1,33 +1,227 @@
 <!doctype html>
 <html lang="en">
   <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Temporal assessment starter</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Juniper Salon | The waitlist</title>
     <link rel="stylesheet" href="/styles.css" />
+    <script src="/app.js" defer></script>
   </head>
   <body>
+    <header class="topbar">
+      <a class="brand" href="/">juniper<span>S A L O N</span></a>
+      <div class="environment">
+        LOCAL PROTOTYPE <span>Simulated messages only</span>
+      </div>
+      <button id="logout" class="quiet" hidden>Sign out</button>
+    </header>
     <main>
-      <p class="eyebrow">Temporal assessment starter</p>
-      <h1>Your environment is connected.</h1>
-      <p class="intro">
-        This neutral demonstration starts a Workflow, waits durably for a
-        Signal, and then completes. Replace it with the experience your
-        customer needs.
-      </p>
-      <section class="card">
-        <h2 id="phase">Ready</h2>
-        <p id="message">Start the demonstration to verify the setup.</p>
-        <button id="start">Start demo Workflow</button>
-        <button id="continue" hidden>Send continue Signal</button>
-        <p class="request-id" id="request-id"></p>
+      <section id="login-panel" class="login panel">
+        <p class="eyebrow">A little less back-and-forth</p>
+        <h1>A full chair.<br />A calmer day.</h1>
+        <p>
+          Sign in to manage openings and see every waitlist reply in one place.
+        </p>
+        <form id="login-form">
+          <label for="code">Staff access code</label>
+          <input
+            id="code"
+            type="password"
+            required
+            maxlength="128"
+            autocomplete="current-password"
+          />
+          <p class="hint">
+            Use the temporary code printed in the terminal when the app starts.
+          </p>
+          <button type="submit">Open the waitlist</button>
+        </form>
       </section>
-      <p class="footer">
-        Inspect the execution at
-        <a href="http://localhost:8233" target="_blank">localhost:8233</a>.
-      </p>
+      <div id="workspace" hidden>
+        <section class="page-heading">
+          <div>
+            <p class="eyebrow">Your day, with fewer gaps</p>
+            <h1>The waitlist</h1>
+            <p>One opening. One offer at a time. Everyone in the loop.</p>
+          </div>
+          <a
+            class="text-link"
+            href="http://localhost:8233"
+            target="_blank"
+            rel="noopener noreferrer"
+            >View Temporal history ↗</a
+          >
+        </section>
+        <div class="layout">
+          <aside>
+            <section class="panel setup">
+              <p class="eyebrow">01 / The opening</p>
+              <h2>Make room for someone.</h2>
+              <p class="hint">
+                Fictional waitlist included. Confirm these sample settings
+                before starting.
+              </p>
+              <form id="opening-form">
+                <label for="start"
+                  >Appointment starts
+                  <span>(your browser's local time)</span></label
+                >
+                <input id="start" type="datetime-local" required />
+                <div class="form-row">
+                  <div>
+                    <label for="service">Service</label
+                    ><select id="service">
+                      <option>Haircut</option>
+                      <option>Color</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label for="stylist">Stylist</label
+                    ><select id="stylist">
+                      <option>Carla</option>
+                      <option>Lena</option>
+                    </select>
+                  </div>
+                </div>
+                <label for="duration">Service length</label
+                ><select id="duration">
+                  <option value="30">30 minutes</option>
+                  <option value="60" selected>60 minutes</option>
+                  <option value="90">90 minutes</option>
+                  <option value="120">2 hours</option>
+                  <option value="180">3 hours</option>
+                </select>
+                <fieldset>
+                  <legend>Contact policy</legend>
+                  <label for="timezone">Salon time zone</label
+                  ><input id="timezone" required maxlength="64" />
+                  <div class="form-row">
+                    <div>
+                      <label for="opens">Open</label
+                      ><input id="opens" type="time" value="09:00" required />
+                    </div>
+                    <div>
+                      <label for="closes">Close</label
+                      ><input id="closes" type="time" value="18:00" required />
+                    </div>
+                  </div>
+                  <p class="hint">
+                    Initial sample hours: 9 am–6 pm. Lena has not confirmed her
+                    exact hours. No offers outside the selected window.
+                  </p>
+                </fieldset>
+                <label class="check"
+                  ><input id="demo" type="checkbox" checked /> Demo timing: 20
+                  seconds per offer</label
+                >
+                <p class="hint">
+                  Uncheck for Lena's 15-minute window. Both modes stop 30
+                  minutes before the appointment.
+                </p>
+                <button id="create" type="submit">Start matching</button>
+              </form>
+            </section>
+            <section class="note">
+              <h3>Square stays your calendar.</h3>
+              <p>
+                An acceptance reserves the opening here. Staff still need to
+                enter the appointment in Square.
+              </p>
+            </section>
+          </aside>
+          <div class="main-column">
+            <section class="panel status-panel">
+              <div class="section-top">
+                <p class="eyebrow">02 / Live opening</p>
+                <span id="phase" class="badge">Ready</span>
+              </div>
+              <h2 id="opening-title">Your next full chair starts here.</h2>
+              <p id="opening-detail" class="muted">
+                Set up a same-day opening to begin.
+              </p>
+              <p id="message" class="status-message" role="status"></p>
+              <div id="active-offer" class="offer-focus" hidden>
+                <p class="eyebrow">Current offer holder</p>
+                <h3 id="holder"></h3>
+                <p id="deadline"></p>
+              </div>
+              <div id="controls" class="controls"></div>
+              <label id="resume-check" class="check" hidden
+                ><input id="available" type="checkbox" /> I checked the
+                calendar. This opening is still available.</label
+              >
+              <div id="reservation" class="reservation" hidden></div>
+              <details id="completed-bookings" hidden>
+                <summary>Completed bookings</summary>
+                <ul id="bookings"></ul>
+              </details>
+            </section>
+            <section class="panel">
+              <div class="section-top">
+                <div>
+                  <p class="eyebrow">03 / The queue</p>
+                  <h2>Who's next?</h2>
+                </div>
+                <span class="muted">Earliest joined first</span>
+              </div>
+              <p id="queue-empty" class="muted">
+                Eligible clients will appear when you create an opening.
+              </p>
+              <div class="table-scroll">
+                <table id="queue-table" hidden>
+                  <thead>
+                    <tr>
+                      <th>Client</th>
+                      <th>Eligibility</th>
+                      <th>Offer</th>
+                    </tr>
+                  </thead>
+                  <tbody id="queue"></tbody>
+                </table>
+              </div>
+            </section>
+            <section class="panel simulator">
+              <div class="section-top">
+                <div>
+                  <p class="eyebrow">Demo controls</p>
+                  <h2>Try a client reply.</h2>
+                </div>
+                <span class="badge">SIMULATED</span>
+              </div>
+              <p class="hint">
+                These controls are for signed-in staff demonstrating fictional
+                replies. No texts are sent.
+              </p>
+              <label for="reply-offer">Offer to respond to</label
+              ><select id="reply-offer">
+                <option value="">No offers yet</option>
+              </select>
+              <div class="controls">
+                <button id="accept">Accept offer</button
+                ><button id="decline" class="secondary">Decline</button
+                ><button id="optout" class="quiet">Opt out</button>
+              </div>
+              <p class="hint">
+                The selection follows each new active offer. Select a previous
+                offer to test a late acceptance. Opt-outs persist when you
+                reopen an opening.
+              </p>
+              <button id="fail-next" class="quiet">
+                Simulate failure of next message
+              </button>
+            </section>
+            <details class="panel activity" open>
+              <summary>Activity history</summary>
+              <ol id="events"></ol>
+            </details>
+          </div>
+        </div>
+      </div>
+      <p id="feedback" class="feedback" role="alert" hidden></p>
     </main>
-    <script src="/app.js"></script>
+    <footer>
+      Juniper Salon · Upskilling Together prototype · Fictional clients,
+      simulated notifications
+    </footer>
   </body>
 </html>
-

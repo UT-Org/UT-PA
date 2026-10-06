@@ -1,58 +1,57 @@
-import { randomUUID } from "node:crypto";
-import path from "node:path";
-import { Client, Connection } from "@temporalio/client";
-import express, { type NextFunction, type Request, type Response } from "express";
-import type { DemoStatus } from "./types";
-import { demoWorkflow } from "./workflows";
+import { randomBytes } from "node:crypto";
+import { createApp } from "./app";
+import { connectClient, ensureSalon, pauseForRecovery } from "./temporal";
+import type { CommandResult, SalonState } from "./types";
 
-const app = express();
-app.use(express.json());
-app.use(express.static(path.join(process.cwd(), "public")));
+async function run() {
+  const port = Number(process.env.PORT ?? 3000);
+  if (!Number.isInteger(port) || port < 1024 || port > 65535)
+    throw new Error("Invalid PORT.");
+  const client = await connectClient();
+  await pauseForRecovery(client, "application started or restarted");
+  const handle = await ensureSalon(client);
 
-let clientPromise: Promise<Client> | undefined;
-function getClient(): Promise<Client> {
-  clientPromise ??= Connection.connect({
-    address: process.env.TEMPORAL_ADDRESS ?? "localhost:7233",
-  }).then((connection) => new Client({ connection, namespace: "default" }));
-  return clientPromise;
+  const deadline = <T>(operation: () => Promise<T>) =>
+    client.connection.withDeadline(Date.now() + 8_000, operation);
+
+  const accessCode =
+    process.env.JUNIPER_ACCESS_CODE ?? randomBytes(24).toString("hex");
+  if (accessCode.length < 24)
+    throw new Error("JUNIPER_ACCESS_CODE must contain at least 24 characters.");
+  const app = createApp(
+    {
+      status: () => deadline(() => handle.query<SalonState>("getSalon")),
+      execute: (input, requestId) =>
+        deadline(() =>
+          handle.executeUpdate<CommandResult, [typeof input]>("command", {
+            args: [input],
+            updateId: requestId,
+          }),
+        ),
+    },
+    accessCode,
+    port,
+  );
+  const server = app.listen(port, "127.0.0.1", () => {
+    console.log(`Juniper Salon: http://localhost:${port}`);
+    if (!process.env.JUNIPER_ACCESS_CODE)
+      console.log(`Staff access code (local demo only): ${accessCode}`);
+  });
+  server.on("error", () => {
+    console.error("Cannot listen on the selected local port.");
+    process.exit(1);
+  });
+  for (const signal of ["SIGINT", "SIGTERM"] as const)
+    process.on(signal, () => {
+      server.close(() => {
+        void client.connection.close().then(() => process.exit(0));
+      });
+    });
 }
 
-app.post("/api/demo", async (_request, response) => {
-  const requestId = randomUUID();
-  const client = await getClient();
-  await client.workflow.start(demoWorkflow, {
-    workflowId: requestId,
-    taskQueue: "assessment-starter",
-    args: [requestId],
-  });
-  response.status(201).json({ requestId });
+run().catch(() => {
+  console.error(
+    "API startup failed. Ensure Temporal is running and check the local configuration.",
+  );
+  process.exit(1);
 });
-
-app.get("/api/demo/:requestId", async (request, response) => {
-  const client = await getClient();
-  const status = await client.workflow
-    .getHandle(request.params.requestId)
-    .query<DemoStatus>("getDemoStatus");
-  response.json(status);
-});
-
-app.post("/api/demo/:requestId/continue", async (request, response) => {
-  const client = await getClient();
-  await client.workflow
-    .getHandle(request.params.requestId)
-    .signal("continueDemo");
-  response.status(202).json({ accepted: true });
-});
-
-app.use(
-  (error: unknown, _request: Request, response: Response, _next: NextFunction) => {
-    console.error(error);
-    response.status(500).json({
-      error: error instanceof Error ? error.message : "Unexpected error",
-    });
-  },
-);
-
-const port = Number(process.env.PORT ?? 3000);
-app.listen(port, () => console.log(`Starter is available at http://localhost:${port}`));
-

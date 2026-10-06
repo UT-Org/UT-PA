@@ -2,4 +2,8 @@ node_modules/
 .env
 .DS_Store
 npm-debug.log*
+.runtime/
+tmp/
+output/previews/
+*.log
 
